@@ -18,34 +18,62 @@ exports.login = [
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({
+        success: false,
+        errors: errors.array(),
+        message: 'Validation errors occurred'
+      });
     }
 
     const { email, password } = req.body;
 
     try {
       const user = await User.findOne({ where: { email } });
-      if (!user || !(await bcrypt.compare(password, user.password))) {
-        return res.status(400).json({ msg: 'Invalid credentials' });
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid credentials'
+        });
       }
 
       const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-      res.json({ token });
+      res.json({
+        success: true,
+        token
+      });
     } catch (err) {
-      res.status(500).send('Server Error');
+      console.error('Server Error:', err.message);
+      res.status(500).json({
+        success: false,
+        message: 'An unexpected server error occurred. Please try again later.',
+        error: err.message
+      });
     }
   }
 ];
 
 exports.register = [
   body('email').isEmail().withMessage('Invalid email address').normalizeEmail(),
-  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long')
-                   .matches(/(?=.*[0-9])(?=.*[!@#$%^&*])(?=.*[a-zA-Z]).{6,}/).withMessage('Password must contain at least one number, one special character, and one letter'),
+  body('password')
+    .isLength({ min: 6 }).withMessage('Password must be at least 6 characters long')
+    .matches(/(?=.*[0-9])(?=.*[!@#$%^&*])(?=.*[a-zA-Z]).{6,}/).withMessage('Password must contain at least one number, one special character, and one letter'),
   body('username').notEmpty().withMessage('Username is required').trim().escape(),
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({
+        success: false,
+        errors: errors.array(),
+        message: 'Validation errors occurred'
+      });
     }
 
     const { username, password, email } = req.body;
@@ -53,15 +81,31 @@ exports.register = [
     try {
       const existingUser = await User.findOne({ where: { email } });
       if (existingUser) {
-        return res.status(400).json({ msg: 'Email already in use' });
+        return res.status(400).json({
+          success: false,
+          message: 'Email is already in use'
+        });
       }
 
       const hashedPassword = await bcrypt.hash(password, 10);
+
       const newUser = await User.create({ username, password: hashedPassword, email });
-      res.json(newUser);
+
+      res.status(201).json({
+        success: true,
+        user: {
+          id: newUser.id,
+          username: newUser.username,
+          email: newUser.email
+        }
+      });
     } catch (err) {
       console.error('Server error in register:', err);
-      res.status(500).send('Server Error');
+      res.status(500).json({
+        success: false,
+        message: 'An unexpected server error occurred. Please try again later.',
+        error: err.message
+      });
     }
   }
 ];
@@ -71,7 +115,11 @@ exports.forgotPassword = [
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({
+        success: false,
+        errors: errors.array(),
+        message: 'Validation errors occurred'
+      });
     }
 
     const { email } = req.body;
@@ -79,11 +127,17 @@ exports.forgotPassword = [
     try {
       const user = await User.findOne({ where: { email } });
       if (!user) {
-        return res.status(400).json({ msg: 'User does not exist' });
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
       }
 
       if (user.resetToken && user.resetTokenExpiry > Date.now()) {
-        return res.status(400).json({ msg: 'A reset request is already pending' });
+        return res.status(400).json({
+          success: false,
+          message: 'A reset request is already pending. Please wait or check your email.'
+        });
       }
 
       const resetToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
@@ -96,31 +150,46 @@ exports.forgotPassword = [
         from: process.env.EMAIL_USER,
         to: email,
         subject: 'Password Reset',
-        text: `Click the link to reset your password: http://localhost:3000/reset-password/token?token=${resetToken}`
+        text: `Click the link to reset your password: ${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`
       };
 
       transporter.sendMail(mailOptions, (error, info) => {
         if (error) {
           console.error('Error sending email:', error);
-          return res.status(500).send('Failed to send reset email');
+          return res.status(500).json({
+            success: false,
+            message: 'Failed to send password reset email. Please try again later.'
+          });
         }
-        res.json({ msg: 'Password reset email sent' });
+        res.json({
+          success: true,
+          message: 'Password reset email sent. Please check your inbox.'
+        });
       });
     } catch (err) {
       console.error('Error in forgotPassword:', err);
-      res.status(500).send('Server Error');
+      res.status(500).json({
+        success: false,
+        message: 'An unexpected server error occurred. Please try again later.',
+        error: err.message
+      });
     }
   }
 ];
 
 exports.resetPassword = [
   body('token').notEmpty().withMessage('Token is required'),
-  body('newPassword').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long')
-                      .matches(/(?=.*[0-9])(?=.*[!@#$%^&*])(?=.*[a-zA-Z]).{6,}/).withMessage('Password must contain at least one number, one special character, and one letter'),
+  body('newPassword')
+    .isLength({ min: 6 }).withMessage('Password must be at least 6 characters long')
+    .matches(/(?=.*[0-9])(?=.*[!@#$%^&*])(?=.*[a-zA-Z]).{6,}/).withMessage('Password must contain at least one number, one special character, and one letter'),
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({
+        success: false,
+        errors: errors.array(),
+        message: 'Validation errors occurred'
+      });
     }
 
     const { token, newPassword } = req.body;
@@ -128,16 +197,25 @@ exports.resetPassword = [
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       if (!decoded || !decoded.id) {
-        return res.status(400).json({ msg: 'Invalid token' });
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid token'
+        });
       }
 
       const user = await User.findByPk(decoded.id);
       if (!user) {
-        return res.status(400).json({ msg: 'User not found' });
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
       }
 
       if (user.resetToken !== token || user.resetTokenExpiry < Date.now()) {
-        return res.status(400).json({ msg: 'Invalid or expired token' });
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid or expired token'
+        });
       }
 
       const hashedPassword = await bcrypt.hash(newPassword, 10);
@@ -146,10 +224,17 @@ exports.resetPassword = [
       user.resetTokenExpiry = null;
       await user.save();
 
-      res.json({ msg: 'Password has been reset' });
+      res.json({
+        success: true,
+        message: 'Password has been successfully reset'
+      });
     } catch (err) {
       console.error('Error in resetPassword:', err);
-      res.status(500).send('Server Error');
+      res.status(500).json({
+        success: false,
+        message: 'An unexpected server error occurred. Please try again later.',
+        error: err.message
+      });
     }
   }
 ];

@@ -25,7 +25,13 @@ sequelize.sync()
 app.use(helmet());
 
 const corsOptions = {
-  origin: 'http://localhost:3000',
+  origin: (origin, callback) => {
+    if (['http://localhost:3000'].includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
 };
 
@@ -52,22 +58,38 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use(cookieParser());
+
 const csrfProtection = csurf({
   cookie: {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production', // Only use 'secure' in production with HTTPS
+    httpOnly: false,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'None',
   }
 });
+
 app.use(csrfProtection);
 app.use((req, res, next) => {
   const csrfToken = req.csrfToken();
-  res.cookie('XSRF-TOKEN', csrfToken, { httpOnly: false });
+  res.cookie('XSRF-TOKEN', csrfToken, {
+    httpOnly: false,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'None',
+  });
   res.locals.csrfToken = csrfToken;
   next();
 });
 
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self';");
+  next();
+});
+
 app.use('/api/articles', articleRoutes);
-app.use('/api/auth', csrfProtection, authRoutes);
+app.use('/api/auth', authRoutes);
 
 app.use((err, req, res, next) => {
   if (err.code === 'EBADCSRFTOKEN') {

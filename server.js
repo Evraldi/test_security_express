@@ -22,21 +22,6 @@ sequelize.sync()
   .then(() => console.log('Database synced...'))
   .catch(err => console.error('Error syncing database:', err));
 
-// Define a custom morgan format
-const morganFormat = (tokens, req, res) => {
-  return [
-    tokens.method(req, res),
-    tokens.url(req, res),
-    tokens.status(req, res),
-    tokens['response-time'](req, res) + 'ms'
-  ].join(' ');
-};
-
-// Apply morgan logging
-if (process.env.NODE_ENV === 'development') {
-  app.use(morgan(morganFormat));
-}
-
 app.use(helmet());
 
 const corsOptions = {
@@ -53,6 +38,8 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
+
+// Rate limiter for development
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
@@ -66,6 +53,8 @@ app.use(hpp());
 
 app.use(compression());
 
+app.use(morgan('dev'));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -74,8 +63,8 @@ app.use(cookieParser());
 const csrfProtection = csurf({
   cookie: {
     httpOnly: false,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'None',
+    secure: false,
+    sameSite: 'Lax',
   }
 });
 
@@ -84,13 +73,14 @@ app.use((req, res, next) => {
   const csrfToken = req.csrfToken();
   res.cookie('XSRF-TOKEN', csrfToken, {
     httpOnly: false,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'None',
+    secure: false,
+    sameSite: 'Lax',
   });
   res.locals.csrfToken = csrfToken;
   next();
 });
 
+// Security headers
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');

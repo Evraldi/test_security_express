@@ -12,17 +12,9 @@ const morgan = require('morgan');
 const compression = require('compression');
 const csurf = require('csurf');
 const cookieParser = require('cookie-parser');
-const https = require('https');
-const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
-
-
-const options = {
-  key: fs.readFileSync(process.env.SSL_KEY_PATH || './key.pem'), 
-  cert: fs.readFileSync(process.env.SSL_CERT_PATH || './cert.pem')
-};
 
 connectDB();
 
@@ -30,6 +22,7 @@ sequelize.sync()
   .then(() => console.log('Database synced...'))
   .catch(err => console.error('Error syncing database:', err));
 
+// Define a custom morgan format
 const morganFormat = (tokens, req, res) => {
   return [
     tokens.method(req, res),
@@ -39,6 +32,7 @@ const morganFormat = (tokens, req, res) => {
   ].join(' ');
 };
 
+// Apply morgan logging
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan(morganFormat));
 }
@@ -47,8 +41,8 @@ app.use(helmet());
 
 const corsOptions = {
   origin: (origin, callback) => {
-    const allowedOrigins = ['https://localhost:3000'];
-    if (allowedOrigins.includes(origin) || !origin) {
+    if (['http://localhost:3000'].includes(origin) || !origin) {
+      // Allow requests from localhost or no origin (e.g., Postman)
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -79,9 +73,9 @@ app.use(cookieParser());
 
 const csrfProtection = csurf({
   cookie: {
-    httpOnly: true,
+    httpOnly: false,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'Strict',
+    sameSite: 'None',
   }
 });
 
@@ -89,9 +83,9 @@ app.use(csrfProtection);
 app.use((req, res, next) => {
   const csrfToken = req.csrfToken();
   res.cookie('XSRF-TOKEN', csrfToken, {
-    httpOnly: true,
+    httpOnly: false,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'Strict',
+    sameSite: 'None',
   });
   res.locals.csrfToken = csrfToken;
   next();
@@ -109,13 +103,6 @@ app.use((req, res, next) => {
 app.use('/api/articles', articleRoutes);
 app.use('/api/auth', authRoutes);
 
-app.use((req, res, next) => {
-  if (req.secure) {
-    return next();
-  }
-  res.redirect(`https://${req.headers.host}${req.url}`);
-});
-
 app.use((err, req, res, next) => {
   if (err.code === 'EBADCSRFTOKEN') {
     return res.status(403).send('Invalid CSRF Token');
@@ -124,6 +111,6 @@ app.use((err, req, res, next) => {
   res.status(500).send('Something broke!');
 });
 
-https.createServer(options, app).listen(PORT, () => {
-  console.log(`Server started on https://localhost:${PORT} at ${new Date().toISOString()}`);
+app.listen(PORT, () => {
+  console.log(`Server started on port ${PORT} at ${new Date().toISOString()}`);
 });

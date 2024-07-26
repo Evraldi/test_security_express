@@ -30,12 +30,14 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'"],
+      scriptSrcAttr: ["'self'"],
       styleSrc: ["'self'"],
       imgSrc: ["'self'", 'data:'],
       connectSrc: ["'self'"],
       fontSrc: ["'self'"],
     },
   },
+
   frameguard: { action: 'deny' },
   hsts: isProduction ? { maxAge: 31536000, includeSubDomains: true } : false, // HSTS false in development
   xssFilter: true,
@@ -115,5 +117,3 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`Server started on port ${PORT} at ${new Date().toISOString()}`);
 });
-
-

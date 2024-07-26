@@ -14,7 +14,7 @@ const csurf = require('csurf');
 const cookieParser = require('cookie-parser');
 
 const app = express();
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 5001;  //might change
 
 connectDB();
 
@@ -22,12 +22,31 @@ sequelize.sync()
   .then(() => console.log('Database synced...'))
   .catch(err => console.error('Error syncing database:', err));
 
-app.use(helmet());
+const isProduction = process.env.NODE_ENV === 'production';
 
+// Helmet configuration
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'"],
+      imgSrc: ["'self'", 'data:'],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+    },
+  },
+  frameguard: { action: 'deny' },
+  hsts: isProduction ? { maxAge: 31536000, includeSubDomains: true } : false, // HSTS false in development
+  xssFilter: true,
+  noSniff: true,
+}));
+
+// CORS configuration
 const corsOptions = {
   origin: (origin, callback) => {
-    if (['http://localhost:3000'].includes(origin) || !origin) {
-      // Allow requests from localhost or no origin (e.g., Postman)
+    const allowedOrigins = [process.env.CLIENT_URL];
+    if (allowedOrigins.includes(origin) || !origin) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -38,58 +57,46 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-
-// Rate limiter for development
+// Rate limiter
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
   message: 'Too many requests, please try again after 15 minutes'
 });
-app.use(limiter);
+
+if (!isProduction) {
+  app.use(limiter); // test
+}
 
 app.use(xssClean());
-
 app.use(hpp());
-
 app.use(compression());
-
-app.use(morgan('dev'));
-
+app.use(morgan(isProduction ? 'combined' : 'dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
 app.use(cookieParser());
 
 const csrfProtection = csurf({
   cookie: {
-    httpOnly: false,
-    secure: false,
-    sameSite: 'Lax',
-  }
+    httpOnly: true, // Prevents client-side JavaScript from accessing the CSRF cookie
+    secure: isProduction,
+    sameSite: isProduction ? 'None' : 'Lax',
+  },
 });
 
 app.use(csrfProtection);
 app.use((req, res, next) => {
   const csrfToken = req.csrfToken();
   res.cookie('XSRF-TOKEN', csrfToken, {
-    httpOnly: false,
-    secure: false,
-    sameSite: 'Lax',
+    httpOnly: false,  // Allows client-side JavaScript to access the CSRF token
+    secure: isProduction,
+    sameSite: isProduction ? 'None' : 'Lax',
   });
   res.locals.csrfToken = csrfToken;
   next();
 });
 
-// Security headers
-app.use((req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-  res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self';");
-  next();
-});
-
+// Routes
 app.use('/api/articles', articleRoutes);
 app.use('/api/auth', authRoutes);
 

@@ -68,6 +68,8 @@ if (!isProduction) {
   app.use(limiter); // test
 }
 
+app.set('etag', false);
+app.disable('x-powered-by');
 app.use(xssClean());
 app.use(hpp());
 app.use(compression());
@@ -75,6 +77,8 @@ app.use(morgan(isProduction ? 'combined' : 'dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+
 
 const csrfProtection = csurf({
   cookie: {
@@ -111,3 +115,5 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`Server started on port ${PORT} at ${new Date().toISOString()}`);
 });
+
+

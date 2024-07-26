@@ -4,5 +4,7 @@ controllers/articleController.js
 routes/articles.js
 node_modules
 
+models/LoginAttempt.js
+
 cert.pem
 key.pem

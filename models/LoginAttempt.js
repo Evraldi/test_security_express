@@ -1,5 +1,7 @@
+/*
+
 const { DataTypes } = require('sequelize');
-const sequelize = require('../config/db');
+const { sequelize } = require('../config/db');
 
 const LoginAttempt = sequelize.define('LoginAttempt', {
   email: {
@@ -20,3 +22,4 @@ const LoginAttempt = sequelize.define('LoginAttempt', {
 });
 
 module.exports = LoginAttempt;
+*/

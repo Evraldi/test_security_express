@@ -1,11 +1,8 @@
 const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
+const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const { body, validationResult } = require('express-validator');
-const rateLimit = require('express-rate-limit');
-
-const User = require('../models/User');
-const LoginAttempt = require('../models/LoginAttempt');
 
 const transporter = nodemailer.createTransport({
   service: 'Gmail',
@@ -15,14 +12,7 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Limit to 5 login attempts per windowMs
-  message: 'Too many login attempts from this IP, please try again after 15 minutes',
-});
-
 exports.login = [
-  loginLimiter, // Apply rate limiting to login route
   body('email').isEmail().withMessage('Invalid email address'),
   body('password').not().isEmpty().withMessage('Password is required'),
   async (req, res) => {
@@ -54,12 +44,7 @@ exports.login = [
         });
       }
 
-      const token = jwt.sign(
-        { id: user.id },
-        process.env.JWT_SECRET,
-        { expiresIn: '1h' } // Consider a shorter expiry and use refresh tokens
-      );
-
+      const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
       res.json({
         success: true,
         token
@@ -74,7 +59,6 @@ exports.login = [
     }
   }
 ];
-
 
 exports.register = [
   body('email').isEmail().withMessage('Invalid email address').normalizeEmail(),

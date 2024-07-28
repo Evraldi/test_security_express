@@ -1,7 +1,6 @@
 const express = require('express');
 const dotenv = require('dotenv');
 const authRoutes = require('./routes/authRoutes');
-const errorMiddleware = require('./middlewares/errorMiddleware');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const cors = require('cors');
@@ -14,18 +13,20 @@ const crypto = require('crypto');
 dotenv.config();
 
 const app = express();
+const isProduction = process.env.NODE_ENV === 'production';
 
+// Middleware to generate nonce
 app.use((req, res, next) => {
   res.locals.nonce = crypto.randomBytes(16).toString('base64');
   next();
 });
 
-const isProduction = process.env.NODE_ENV === 'production';
-
+// Security Middleware
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cookieParser());
 
+// CSP Middleware (using nonce)
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -39,17 +40,20 @@ app.use(helmet({
       upgradeInsecureRequests: [],
     },
   },
-  frameguard: {
-    action: 'deny',
-  },
+  frameguard: { action: 'deny' },
   hsts: {
     maxAge: 31536000,
     includeSubDomains: true,
     preload: true,
   },
-  xssFilter: true,
   noSniff: true,
 }));
+
+// Explicitly set X-XSS-Protection header
+app.use((req, res, next) => {
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  next();
+});
 
 app.use(cors({
   origin: 'http://localhost:3000',
@@ -62,20 +66,16 @@ app.use(compression());
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 13,
   message: 'Too many requests from this IP, please try again later.',
 });
 
+// Debugging Middleware
 app.use((req, res, next) => {
   console.log('Request Headers:', req.headers);
   console.log('Request Cookies:', req.cookies);
   console.log('CSRF Token in Request:', req.headers['x-csrf-token']);
   console.log('CSRF Token from Cookies:', req.cookies['XSRF-TOKEN']);
-  next();
-});
-
-app.use((req, res, next) => {
-  console.log(`Incoming request: ${req.method} ${req.url}`);
   next();
 });
 
@@ -100,8 +100,9 @@ app.use((req, res, next) => {
 });
 
 app.use('/api/auth', authLimiter, csrfProtection, authRoutes);
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(err.status || 500).json({ message: err.message || 'Internal Server Error' });
+});
 
-//app.use(errorMiddleware);
-
-const port = process.env.PORT || 3000;
-app.listen(port, () => console.log(`Server running on port ${port}`));
+module.exports = app;

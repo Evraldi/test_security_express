@@ -1,10 +1,5 @@
 .env
-models/Article.js
-controllers/articleController.js
-routes/articles.js
 node_modules
 
-models/LoginAttempt.js
-
-cert.pem
-key.pem
+public.pem
+private.pem

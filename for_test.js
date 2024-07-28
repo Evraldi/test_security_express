@@ -1,6 +1,5 @@
 const express = require('express');
 const dotenv = require('dotenv');
-const authRoutes = require('./routes/authRoutes');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const cors = require('cors');
@@ -10,32 +9,31 @@ const csurf = require('csurf');
 const cookieParser = require('cookie-parser');
 const crypto = require('crypto');
 
+const authRoutes = require('./routes/authRoutes');
+
 dotenv.config();
 
 const app = express();
 const isProduction = process.env.NODE_ENV === 'production';
 
-// Middleware to generate nonce
 app.use((req, res, next) => {
   res.locals.nonce = crypto.randomBytes(16).toString('base64');
   next();
 });
 
-// Security Middleware
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cookieParser());
 
-// CSP Middleware (using nonce)
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", (req, res) => `'nonce-${res.locals.nonce}'`, "https://trusted-cdn.com"],
-      styleSrc: ["'self'", "https://trusted-cdn.com"],
-      imgSrc: ["'self'", "data:"],
+      scriptSrc: ["'self'", (req, res) => `'nonce-${res.locals.nonce}'`, 'https://trusted-cdn.com'],
+      styleSrc: ["'self'", 'https://trusted-cdn.com'],
+      imgSrc: ["'self'", 'data:'],
       connectSrc: ["'self'"],
-      fontSrc: ["'self'", "https://fonts.example.com"],
+      fontSrc: ["'self'", 'https://fonts.example.com'],
       objectSrc: ["'none'"],
       upgradeInsecureRequests: [],
     },
@@ -49,7 +47,6 @@ app.use(helmet({
   noSniff: true,
 }));
 
-// Explicitly set X-XSS-Protection header
 app.use((req, res, next) => {
   res.setHeader('X-XSS-Protection', '1; mode=block');
   next();
@@ -66,7 +63,7 @@ app.use(compression());
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 13,
+  max: 25,
   message: 'Too many requests from this IP, please try again later.',
 });
 

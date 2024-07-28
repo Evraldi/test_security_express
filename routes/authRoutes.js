@@ -1,6 +1,6 @@
 const express = require('express');
-const { register, login } = require('../controllers/authController');
 const { body, validationResult } = require('express-validator');
+const { register, login } = require('../controllers/authController');
 
 const router = express.Router();
 
@@ -8,23 +8,28 @@ const validationRules = {
   register: [
     body('email')
       .isEmail().withMessage('Invalid email format')
-      .normalizeEmail().escape(),
+      .normalizeEmail()
+      .escape(),
     body('password')
       .isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
-      .trim().escape(),
+      .trim()
+      .escape(),
     body('name')
       .notEmpty().withMessage('Name is required')
       .trim()
-      .matches(/^[a-zA-Z0-9 ]*$/).withMessage('Name contains invalid characters')
+      .matches(/^[a-zA-Z0-9 ]*$/)
+      .withMessage('Name contains invalid characters')
       .escape(),
   ],
   login: [
     body('email')
       .isEmail().withMessage('Invalid email format')
-      .normalizeEmail().escape(),
+      .normalizeEmail()
+      .escape(),
     body('password')
       .notEmpty().withMessage('Password is required')
-      .trim().escape(),
+      .trim()
+      .escape(),
   ],
 };
 

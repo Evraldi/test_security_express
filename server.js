@@ -1,7 +1,5 @@
 const express = require('express');
 const dotenv = require('dotenv');
-const authRoutes = require('./routes/authRoutes');
-const errorMiddleware = require('./middlewares/errorMiddleware');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const cors = require('cors');
@@ -10,6 +8,8 @@ const hpp = require('hpp');
 const csurf = require('csurf');
 const cookieParser = require('cookie-parser');
 const crypto = require('crypto');
+// const errorMiddleware = require('./middlewares/errorMiddleware');
+const authRoutes = require('./routes/authRoutes');
 
 dotenv.config();
 
@@ -30,11 +30,11 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", (req, res) => `'nonce-${res.locals.nonce}'`, "https://trusted-cdn.com"],
-      styleSrc: ["'self'", "https://trusted-cdn.com"],
-      imgSrc: ["'self'", "data:"],
+      scriptSrc: ["'self'", (req, res) => `'nonce-${res.locals.nonce}'`, 'https://trusted-cdn.com'],
+      styleSrc: ["'self'", 'https://trusted-cdn.com'],
+      imgSrc: ["'self'", 'data:'],
       connectSrc: ["'self'"],
-      fontSrc: ["'self'", "https://fonts.example.com"],
+      fontSrc: ["'self'", 'https://fonts.example.com'],
       objectSrc: ["'none'"],
       upgradeInsecureRequests: [],
     },
@@ -50,6 +50,16 @@ app.use(helmet({
   xssFilter: true,
   noSniff: true,
 }));
+
+app.use((req, res, next) => {
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  next();
+});
+
+app.post('/csp-violation-report', express.json({ type: ['json', 'application/csp-report'] }), (req, res) => {
+  console.log('CSP Violation:', req.body);
+  res.status(204).end();
+});
 
 app.use(cors({
   origin: 'http://localhost:3000',
@@ -101,7 +111,7 @@ app.use((req, res, next) => {
 
 app.use('/api/auth', authLimiter, csrfProtection, authRoutes);
 
-//app.use(errorMiddleware);
+// app.use(errorMiddleware);
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => console.log(`Server running on port ${port}`));

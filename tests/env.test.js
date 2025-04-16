@@ -1,4 +1,4 @@
-// config/env/test.js
+// tests/env.test.js
 require('dotenv').config();
 
 describe('Environment Variables', () => {

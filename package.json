@@ -5,7 +5,26 @@
   "main": "index.js",
   "scripts": {
     "setup": "node -r dotenv/config tests/setup.js",
-    "test": "jest"
+    "test": "jest --setupFiles=./tests/setup.js --forceExit --detectOpenHandles",
+    "test:watch": "jest --watch --setupFiles=./tests/setup.js",
+    "test:coverage": "jest --coverage --setupFiles=./tests/setup.js",
+    "test:security": "jest --setupFiles=./tests/setup.js --forceExit --detectOpenHandles tests/security/",
+    "test:e2e": "jest --setupFiles=./tests/setup.js --forceExit --detectOpenHandles tests/e2e/",
+    "test:pentest": "jest --setupFiles=./tests/setup.js --forceExit --detectOpenHandles tests/penetration/",
+    "test:all-security": "jest --setupFiles=./tests/setup.js --forceExit --detectOpenHandles 'tests/(security|e2e|penetration)/.*'",
+    "generate-keys": "node generate-keys.js",
+    "dev": "nodemon server.js",
+    "start": "NODE_ENV=production node server.js"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testTimeout": 10000,
+    "collectCoverageFrom": [
+      "**/*.js",
+      "!**/node_modules/**",
+      "!**/coverage/**",
+      "!**/tests/**"
+    ]
   },
   "dependencies": {
     "@prisma/client": "^5.17.0",

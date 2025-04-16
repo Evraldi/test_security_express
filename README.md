@@ -31,7 +31,6 @@ Aplikasi ini mengimplementasikan berbagai fitur keamanan:
 │   ├── e2e/                # Pengujian end-to-end
 │   ├── penetration/        # Pengujian penetrasi
 │   ├── security/           # Pengujian keamanan
-│   └── unit/               # Pengujian unit
 ├── .env.example            # Contoh file environment
 ├── .gitignore              # File yang diabaikan oleh Git
 ├── for_test.js             # Setup untuk pengujian
